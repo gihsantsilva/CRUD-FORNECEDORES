@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cadastramento de Fornecedores</title>
+    <!-- Importando estilos do Bootstrap -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" />
+</head>
+
+<body class="container mt-5">
+    <h2>Cadastramento de Fornecedores</h2>
+    <!-- Formulário para adicionar/editar fornecedores(inserir) -->
+    <form id="productForm" class="my-4">
+        <div class="form-group">
+            <input type="number" id="id" class="form-control" placeholder="ID" required />
+        </div>
+        <div class="form-group">
+            <input type="text" id="nome" class="form-control" placeholder="Nome" required />
+        </div>
+        <div class="form-group">
+            <input type="number" id="cnpj" class="form-control" placeholder="CNPJ" required />
+        </div>
+        <div class="form-group" >
+            <input type="text" id="email" class="form-control" placeholder="E-mail" required />
+        </div> 
+        <button type="submit" class="btn btn-primary">Cadastrar</button>
+        <button type="button" id="cancelBtn" class="btn btn-secondary" style="display: none">
+            Cancelar
+        </button>
+    </form>
+    <!-- Tabela para listar fornecedores -->
+    <table class="table table-bordered">
+
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>CNPJ</th>
+                <th>E-mail</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody id="fornecedorForm"></tbody>
+    </table>
+    <script>
+        // Array para armazenar fornecedores do servidor
+        let fornecedores = [];
+        // ID do fornecedor em edição
+        let fornecedorAtual = null;
+        // Função para exibir fornecedor na tabela
+        function displayFornecedores() {
+            const tbody = document.getElementById("fornecedorForm");
+            tbody.innerHTML = "";
+            fornecedores.forEach((fornecedor) => {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+
+<td>${fornecedor.id}</td>
+<td>${fornecedor.nome}</td>
+<td>${fornecedor.cnpj}</td>
+<td>${fornecedor.email}</td>
+<td>
+<button class="btn btn-warning btn-sm"
+onclick="editFornecedor(${fornecedor.id})">Alterar</button>
+
+<button class="btn btn-danger btn-sm"
+onclick="deleteFornecedor(${fornecedor.id})">Remover</button>
+
+</td>
+`;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Carrega fornecedores do servidor ao carregar a página(função assincrona)
+       async function consultarBanco () {
+        await fetch("http://localhost:3000/fornecedores")
+            .then((response) => response.json())
+            .then((data) => {
+                fornecedores = data;
+            })
+            .catch((error) => console.error("Error:", error));
+            displayFornecedores();
+        }
+        
+        // Função para carregar um fornecedor no formulário para edição(PUT)
+        function editFornecedor(id) {
+            fornecedorAtual = id;
+            const fornecedor= fornecedores.find((p) => p.id === id);
+            document.getElementById("id").value = fornecedor.id || "";
+            document.getElementById("nome").value = fornecedor.nome || "";
+            document.getElementById("cnpj").value = fornecedor.cnpj || "";
+            document.getElementById("email").value = fornecedor.email || "";
+            // Mostra o botão cancelar durante a edição
+            document.getElementById("cancelBtn").style.display = "inline-block";
+        }
+
+        function reset() {
+                document.getElementById("id").value = "";
+                document.getElementById("nome").value = "";
+                document.getElementById("cnpj").value = "";
+                document.getElementById("email").value = "";
+            }
+
+            // Função para remover fornecedor do servidor e atualizar a lista(DELETE)
+        function deleteFornecedor(id) {
+            fetch("http://localhost:3000/fornecedores/" + id, {
+                method: "DELETE",
+            })
+                .then(() => {
+
+                    reset();
+                    consultarBanco();
+                })
+                .catch((error) => console.error("Error:", error));
+        }
+
+
+        // Evento para lidar com o envio do formulário
+        document
+            .getElementById("productForm")
+            .addEventListener("submit", function (event) {
+                event.preventDefault();
+
+                // Coleta os valores do formulário
+                const fornecedor = {
+                    id: parseInt(document.getElementById("id").value),
+                    nome: document.getElementById("nome").value,
+                    cnpj: document.getElementById("cnpj").value,
+                    email: document.getElementById("email").value,
+                };
+                if (fornecedorAtual) {
+                    // Se estiver editando
+                    fetch("http://localhost:3000/fornecedores/" + fornecedorAtual, {
+                        method: "PUT",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(fornecedor),
+                    })
+                        .then((response) => response.json())
+                        .then((data) => {
+                            const index = fornecedores.findIndex((p) => p.id === fornecedorAtual);
+                            fornecedores[index] = data;
+                            consultarBanco();
+
+                            // Limpa o formulário e reseta o fornecedor em edição
+                            document.getElementById("fornecedorForm");
+                            fornecedorAtual = null;
+                            document.getElementById("cancelBtn").style.display = "none";
+                        })
+                        .catch((error) => console.error("Error:", error));
+                } else {
+
+                    // Se for um novo fornecedor(POST)
+                    fetch("http://localhost:3000/fornecedores", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(fornecedor),
+                    })
+                        .then((response) => response.json())
+                        .then((data) => {
+                            fornecedores.push(data);
+                            consultarBanco();
+                            document.getElementById("fornecedorForm");
+                        })
+                        .catch((error) => console.error("Error:", error));
+
+                }
+            });
+
+        // Cancela a edição e limpa o formulário
+    document
+        .getElementById("cancelBtn")
+        .addEventListener("click", function () {
+            fornecedorAtual = null;
+            reset(); // Chamando a função reset() para limpar os campos
+            this.style.display = "none";
+        });
+
+
+        consultarBanco();
+
+    </script>
+    <!-- Bibliotecas JS auxiliares (Bootstrap requer jQuery e Popper.js) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    
+</body>
+
+</html>
